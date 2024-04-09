@@ -1,36 +1,76 @@
-import requests
-import json
-from utils import GOPRO_BASE_URL
+import argparse
+from typing import Optional
+from open_gopro import Params, WiredGoPro, proto
+from threading import Thread, Event
 from time import sleep
+import asyncio
 
-print("Starting...")
+photos_taken = 0
+interval = 10
 
-url = GOPRO_BASE_URL + "/gopro/media/list"
-response = requests.get(url, timeout=10)
-print(f"Response: {json.dumps(response.json(), indent=4)}")
+async def main(identifier: Optional[str]) -> None:
+    print("Started")
 
-url = GOPRO_BASE_URL + "/gopro/camera/control/wired_usb?p=1"
-response = requests.get(url, timeout=10)
-print(f"Response: {json.dumps(response.json(), indent=4)}")
+    try:
+        quit_signal = Event()
+        _keep_alive = Thread(target=keep_alive, args=(quit_signal,))
+        _keep_alive.start()
+        _timelapse = Thread(target=timelapse, args=(interval,quit_signal,))
 
-url = GOPRO_BASE_URL + "/gopro/camera/presets/load?id=1001"
-response = requests.get(url, timeout=10)
-print(f"Response: {json.dumps(response.json(), indent=4)}")
+        running = True
+        while running:
+            cmd = input()
+            if cmd == "start":
+                print("Starting timelapse for gopro {identifier}")
+                _timelapse.start()
 
-# url = GOPRO_BASE_URL + "/gopro/camera/shutter/start"
-# response = requests.get(url, timeout=10)
-# print(f"Response: {json.dumps(response.json(), indent=4)}")
-# sleep(10)
+            if cmd == "status":
+                print(photos_taken)
 
-# url = GOPRO_BASE_URL + "/gopro/camera/presets/get?id=186"
-# response = requests.get(url, timeout=10)
-# print(f"Response: {json.dumps(response.json(), indent=4)}")
+            elif cmd == "q":
+                quit_signal.set()
+                _keep_alive.join()
+                if _timelapse.is_alive() : _timelapse.join()
+                # await gopro.close()
+                running = False
+                break;
+    
 
-# url = GOPRO_BASE_URL + "/gopro/camera/shutter/start"
-# response = requests.get(url, timeout=10)
-# print(f"Response: {json.dumps(response.json(), indent=4)}")
-# sleep(10)
+    except Exception as e:
+        print(e)
+    
+    print("Goodbye!")
 
-# url = GOPRO_BASE_URL + "/gopro/camera/shutter/stop"
-# response = requests.get(url, timeout=10)
-# print(f"Response: {json.dumps(response.json(), indent=4)}")
+async def timelapse(interval,quit_signal):
+    # set to photomode
+    # set resolution and other photo settings
+    
+    while not quit_signal.is_set():
+        #take picture
+        photos_taken += 1
+        sleep(interval)
+
+
+
+
+def keep_alive(signal):
+    while not signal.is_set():
+        print("staying awake\r")
+        sleep(3)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-i",
+        "--identifier",
+        type=str,
+        help="last 4 digits of the serial number",
+        default=None,
+    )
+    parser.add_argument(
+        "-d",
+        "--interval"
+    )
+
+    args = parser.parse_args()
+    asyncio.run(main(args.identifier))
