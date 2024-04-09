@@ -1,17 +1,12 @@
-from open_gopro import WiredGoPro, proto, Params
+from open_gopro import WiredGoPro
 from time import sleep
 import requests, json
-import asyncio
 
-async def keep_alive(gopro: WiredGoPro, signal):
-    print("here")
-    while not signal.is_set():
-        # response = requests.get(url, timeout = 2)
-        try:
-            print("keeping alive")
-            assert(await gopro.http_command.set_keep_alive()).ok
-        except Exception as e:
-            print(e)
-            return;
+GOPRO_BASE_URL = "http://172.29.133.51:8080"
+
+def keep_alive(quit_signal):
+    url = GOPRO_BASE_URL + "/gopro/camera/keep_alive"
+    while not quit_signal.is_set():
+        response = requests.get(url, timeout = 2)
         # print(f"Response: {json.dumps(response.json(), indent=4)}")
         sleep(3)
