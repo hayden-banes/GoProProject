@@ -158,3 +158,6 @@ OpenGoPro/
 #DS_Store files (unrelated to project - part of macOS).
 .DS_Store
 **/.DS_Store
+
+#Downloaded images
+gproimg/
