@@ -1,63 +1,135 @@
 import argparse
-from utils import keep_alive
-from typing import Optional
-from open_gopro import Params, WiredGoPro, proto
+from utils import Utils
 from threading import Thread, Event
 from time import sleep
-import asyncio
+import requests
 
 
 
-class timelaspse:
-    def __init__
+class GoProController():
+    def __init__(self, args) -> None:
+        self.args = args
+        self.gopro = Utils(args.identifier)
+        self.interval = 10
+        self.photos_taken = 0
 
-photos_taken = 0
-interval = 10
+    def run(self) -> None:
+        print("type h for help")
 
-async def main(args: argparse.Namespace) -> None:
-    print("Started")
+        try:
+            #Check gopro exists/is connected
+            # self.gopro.check()
 
-    try:
-        async with WiredGoPro(args.identifier) as gopro:
-            quit_signal = Event()
-            _keep_alive = asyncio.create_task(keep_alive(gopro, quit_signal))
-            # _keep_alive = Thread(target=keep_alive, args=(gopro, quit_signal,))
-            # await _keep_alive.start()
-            _timelapse = Thread(target=timelapse, args=(interval,gopro,quit_signal,))
+            timelapse_signal = Event()
+            keep_alive_signal = Event()
+            _keep_alive = Thread(target=self.gopro.keep_alive, args=(keep_alive_signal,))
+            _keep_alive.start()
+        
             running = True
 
             while running:
                 cmd = input()
                 if cmd == "start":
-                    print("Starting timelapse for gopro {identifier}")
-                    await _timelapse.start()
+                    print(f"Starting timelapse for GoPro {args.identifier}")
+                    timelapse_signal.clear()
+                    # TODO This can create endless threads, consider moving outside the loop so only one thread per GP
+                    _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
+                    _timelapse.start()
+                
+                if cmd == "stop": # TODO will throw an exception is the thread is not running
+                    if _timelapse.is_alive():
+                        timelapse_signal.set()
+                        _timelapse.join()
+                        print("timelapse stopped")
+                    else:
+                        print("no timelapse active")
 
                 if cmd == "status":
-                    print(photos_taken)
+                    status = self.gopro.get_status().json()
+                    print(f"Photos taken: {self.photos_taken}")
+                    print(f"Photos remaing: {status['status']['34']}")
+                
+                if cmd == "download":
+                    if _timelapse.is_alive():
+                        print("please stop the current timelapse before downloading")
+                    else:
+                        self.download()
+
+                if cmd == "h":
+                    print("start")
+                    print("stop")
+                    print("status")
+                    print("download")
+                    print("q")
 
                 elif cmd == "q":
-                    await quit_signal.set()
-                    await _keep_alive
-                    await _timelapse.join()
-                    await gopro.close()
                     running = False
                     break;
-    
+        
 
-    except Exception as e:
-        print(e)
-    if gopro:
-        await gopro.close()
-    
-    print("Goodbye!")
+        except Exception as e:
+            print(e)
+            print(e.__traceback__.tb_lineno)
+        
+        print("Stopping background tasks", end="\r")
+        timelapse_signal.set()
+        print("Stopping background tasks.",end="\r")
+        keep_alive_signal.set()
+        print("Stopping background tasks..",end="\r")
+        if _keep_alive.is_alive(): _keep_alive.join()
+        print("Stopping background tasks...")
+        if _timelapse.is_alive(): _timelapse.join()
+        print("Goodbye!")
 
-async def timelapse(interval,gopro,quit_signal):
-    assert(await gopro.http_command.load_preset_group(group=proto.EnumPresetGroup.PRESET_GROUP_ID_PHOTO)).ok
-    
-    while not quit_signal.is_set():
-        assert (await gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE)).ok
-        photos_taken += 1
-        sleep(interval)
+    def download(self):
+        delete = input("Delete pictures from camera too? (y/n)") == 'y'
+        url =  + "/gopro/media/list"
+        response = requests.get(url, timeout=2).json()
+        count = 0
+        for media in response['media']:
+            count += len(media['fs'])
+
+        img_no = 0
+        for media in response['media']:
+            for image in media['fs']:
+                self.download_media(dest='/Users/hayden/GitHub/GoProProject/gproimg/', srcfolder=media['d'], srcimage=image['n'])
+                if delete: self.delete_img(srcfolder=media['d'], srcimage=image['n'])
+                img_no+=1
+                if img_no % 5 == 0 : print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
+
+    def download_media(self, dest, srcfolder, srcimage):
+        url = self.gopro.base_url + f"/videos/DCIM/{srcfolder}/{srcimage}"
+        try:
+            with requests.get(url, timeout=2,stream=True) as response:
+                response.raise_for_status()
+                with open(f'{dest}{srcimage}', 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+        except requests.exceptions.RequestException as e:
+            print("error")
+
+    def timelapse(self,interval,quit_signal):
+        url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
+        response = requests.get(url, timeout = 2)
+        while not quit_signal.is_set():
+            assert(requests.get(self.gopro.base_url + "/gopro/camera/shutter/start", timeout=2)).ok
+            self.photos_taken += 1
+            sleep(interval)
+
+    def set_auto_powerdown_off(self):
+        url = self.gopro.base_url + "/gopro/camera/setting?setting=59&option=0"
+        response = requests.get(url, timeout = 2)
+
+    def set_auto_powerdown_on(self):
+        url = "/gopro/camera/setting?setting=59&option=4"
+        response = requests.get(url, timeout = 2)
+
+    def delete_img(srcfolder, srcimage):
+
+        pass
+
+    def upload_to_gdrive():
+        return 1
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -73,12 +145,11 @@ def parse_arguments() -> argparse.Namespace:
         "-d",
         "--interval"
     )
-    type(parser.parse_args())
     return parser.parse_args()
 
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-    print(args)
-    asyncio.run(main(args))
+    controller = GoProController(args)
+    controller.run()

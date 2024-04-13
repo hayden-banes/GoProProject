@@ -1,76 +1,34 @@
-import argparse
-from typing import Optional
-from open_gopro import Params, WiredGoPro, proto
-from threading import Thread, Event
-from time import sleep
-import asyncio
+import requests
+from utils import GOPRO_BASE_URL
 
-photos_taken = 0
-interval = 10
-
-async def main(identifier: Optional[str]) -> None:
-    print("Started")
-
+def download_media(dest, srcfolder, srcimage):
+    url = GOPRO_BASE_URL + f"/videos/DCIM/{srcfolder}/{srcimage}"
     try:
-        quit_signal = Event()
-        _keep_alive = Thread(target=keep_alive, args=(quit_signal,))
-        _keep_alive.start()
-        _timelapse = Thread(target=timelapse, args=(interval,quit_signal,))
+        with requests.get(url, timeout=2,stream=True) as response:
+            response.raise_for_status()
+            with open(f'{dest}{srcimage}', 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+    except requests.exceptions.RequestException as e:
+        print("error")
 
-        running = True
-        while running:
-            cmd = input()
-            if cmd == "start":
-                print("Starting timelapse for gopro {identifier}")
-                _timelapse.start()
 
-            if cmd == "status":
-                print(photos_taken)
+#Media discovery
+url = GOPRO_BASE_URL + "/gopro/media/list"
+response = requests.get(url, timeout=2).json()
+count = 0
+for media in response['media']:
+    count += len(media['fs'])
 
-            elif cmd == "q":
-                quit_signal.set()
-                _keep_alive.join()
-                if _timelapse.is_alive() : _timelapse.join()
-                # await gopro.close()
-                running = False
-                break;
-    
+img_no = 0
 
-    except Exception as e:
-        print(e)
-    
-    print("Goodbye!")
-
-async def timelapse(interval,quit_signal):
-    # set to photomode
-    # set resolution and other photo settings
-    
-    while not quit_signal.is_set():
-        #take picture
-        photos_taken += 1
-        sleep(interval)
+for media in response['media']:
+    # print(media['d'])
+    for image in media['fs']:
+        download_media(dest='/Users/hayden/GitHub/GoProProject/gproimg/', srcfolder=media['d'], srcimage=image['n'])
+        img_no+=1
+        if img_no % 5 == 0 : print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
 
 
 
 
-def keep_alive(signal):
-    while not signal.is_set():
-        print("staying awake\r")
-        sleep(3)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-i",
-        "--identifier",
-        type=str,
-        help="last 4 digits of the serial number",
-        default=None,
-    )
-    parser.add_argument(
-        "-d",
-        "--interval"
-    )
-
-    args = parser.parse_args()
-    asyncio.run(main(args.identifier))
