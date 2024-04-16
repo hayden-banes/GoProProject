@@ -55,6 +55,10 @@ class GoProController():
                         print("please stop the current timelapse before downloading")
                     else:
                         self.download()
+                if cmd == "clearSD":
+                    if input("Confirm clear SD card? (y/n): ") == 'y':
+                        self.delete_all()
+                        print("SD Card Cleared")
 
                 if cmd == "h":
                     print("start")
@@ -87,6 +91,8 @@ class GoProController():
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
 
+        save_dest = './gproimg/'
+
         count = 0 #Total images counter
         img_no = 0 #Transfered images counter
 
@@ -95,9 +101,10 @@ class GoProController():
 
         for media in response['media']:
             for image in media['fs']:
-                self.download_media(dest='/Users/hayden/GitHub/GoProProject/gproimg/', srcfolder=media['d'], srcimage=image['n'])
+                self.download_media(dest=save_dest, srcfolder=media['d'], srcimage=image['n'])
 
                 #If delete flag is enabled
+                #TODO Verify image has been safely downloaded before deleting
                 if delete: self.delete_img(srcfolder=media['d'], srcimage=image['n'])
 
                 #Provide an update on file transfer
@@ -135,7 +142,11 @@ class GoProController():
 
     def delete_img(self, srcfolder, srcimage):
         url = self.gopro.base_url + f"/gopro/media/delete/file?path={srcfolder}/{srcimage}"
-        response = requests.get(url, timeout=2)
+        requests.get(url, timeout=2)
+    
+    def delete_all(self):
+        url = self.gopro.base_url + "/gp/gpControl/command/storage/delete/all"
+        requests.get(url, timeout=2)
 
     def upload_to_gdrive():
         return 1
