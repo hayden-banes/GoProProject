@@ -50,6 +50,7 @@ class GoProController():
                     print(f"Photos remaing: {status['status']['34']}")
                 
                 if cmd == "download":
+                    #TODO Can only work if timelapse has been run in this session
                     if _timelapse.is_alive():
                         print("please stop the current timelapse before downloading")
                     else:
@@ -82,20 +83,28 @@ class GoProController():
         print("Goodbye!")
 
     def download(self):
-        delete = input("Delete pictures from camera too? (y/n)") == 'y'
-        url =  + "/gopro/media/list"
+        delete = input("Delete pictures from camera too? (y/n): ") == 'y'
+        url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
-        count = 0
+
+        count = 0 #Total images counter
+        img_no = 0 #Transfered images counter
+
         for media in response['media']:
             count += len(media['fs'])
 
-        img_no = 0
         for media in response['media']:
             for image in media['fs']:
                 self.download_media(dest='/Users/hayden/GitHub/GoProProject/gproimg/', srcfolder=media['d'], srcimage=image['n'])
+
+                #If delete flag is enabled
                 if delete: self.delete_img(srcfolder=media['d'], srcimage=image['n'])
-                img_no+=1
+
+                #Provide an update on file transfer
+                img_no+=1 
                 if img_no % 5 == 0 : print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
+        
+        print('100% - Done!') #To give a clean ending
 
     def download_media(self, dest, srcfolder, srcimage):
         url = self.gopro.base_url + f"/videos/DCIM/{srcfolder}/{srcimage}"
@@ -124,9 +133,9 @@ class GoProController():
         url = "/gopro/camera/setting?setting=59&option=4"
         response = requests.get(url, timeout = 2)
 
-    def delete_img(srcfolder, srcimage):
-
-        pass
+    def delete_img(self, srcfolder, srcimage):
+        url = self.gopro.base_url + f"/gopro/media/delete/file?path={srcfolder}/{srcimage}"
+        response = requests.get(url, timeout=2)
 
     def upload_to_gdrive():
         return 1
