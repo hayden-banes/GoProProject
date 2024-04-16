@@ -1,8 +1,10 @@
 import argparse
+import asyncio
 from utils import Utils
 from threading import Thread, Event
 from time import sleep
 import requests
+import ble_wakeup.ble_connect
 
 
 
@@ -13,12 +15,13 @@ class GoProController():
         self.interval = 10
         self.photos_taken = 0
 
-    def run(self) -> None:
+    async def run(self) -> None:
         print("type h for help")
 
         try:
             #Check gopro exists/is connected
-            # self.gopro.check()
+            if await self.gopro.connect():
+                raise Exception(f"Could not connect to GoPro {self.gopro.identifier}")
 
             timelapse_signal = Event()
             keep_alive_signal = Event()
@@ -171,5 +174,6 @@ def parse_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_arguments()
+    # asyncio.run(ble_wakeup.ble_connect.main(args.identifier))
     controller = GoProController(args)
-    controller.run()
+    asyncio.run(controller.run())
