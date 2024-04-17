@@ -26,6 +26,8 @@ class GoProController():
             timelapse_signal = Event()
             keep_alive_signal = Event()
             _keep_alive = Thread(target=self.gopro.keep_alive, args=(keep_alive_signal,))
+            _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
+            
             _keep_alive.start()
         
             running = True
@@ -36,7 +38,6 @@ class GoProController():
                     print(f"Starting timelapse for GoPro {args.identifier}")
                     timelapse_signal.clear()
                     # TODO This can create endless threads, consider moving outside the loop so only one thread per GP
-                    _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
                     _timelapse.start()
                 
                 if cmd == "stop": # TODO will throw an exception is the thread is not running
