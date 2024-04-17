@@ -24,7 +24,7 @@ def exception_handler(loop: asyncio.AbstractEventLoop, context: Dict[str, Any]) 
     logger.critical("This is unexpected and unrecoverable.")
 
 
-async def connect_ble(notification_handler: noti_handler_T, identifier: Optional[str] = None) -> BleakClient:
+async def connect_ble(identifier: Optional[str] = None) -> BleakClient:
     """Connect to a GoPro, then pair, and enable notifications
 
     If identifier is None, the first discovered GoPro will be connected to.
@@ -62,20 +62,17 @@ async def connect_ble(notification_handler: noti_handler_T, identifier: Optional
 
             # Scan until we find devices
             matched_devices: List[BleakDevice] = []
-            attempts = 0
-            while len(matched_devices) == 0 & attempts < 3:
-                attempts += 1
                 # Now get list of connectable advertisements
-                for device in await BleakScanner.discover(timeout=5, detection_callback=_scan_callback):
-                    if device.name != "Unknown" and device.name is not None:
-                        devices[device.name] = device
-                # Log every device we discovered
-                for d in devices:
-                    logger.info(f"\tDiscovered: {d}")
-                # Now look for our matching device(s)
-                token = re.compile(r"GoPro [A-Z0-9]{4}" if identifier is None else f"GoPro {identifier}")
-                matched_devices = [device for name, device in devices.items() if token.match(name)]
-                logger.info(f"Found {len(matched_devices)} matching devices.")
+            for device in await BleakScanner.discover(timeout=5, detection_callback=_scan_callback):
+                if device.name != "Unknown" and device.name is not None:
+                    devices[device.name] = device
+            # Log every device we discovered
+            for d in devices:
+                logger.info(f"\tDiscovered: {d}")
+            # Now look for our matching device(s)
+            token = re.compile(r"GoPro [A-Z0-9]{4}" if identifier is None else f"GoPro {identifier}")
+            matched_devices = [device for name, device in devices.items() if token.match(name)]
+            logger.info(f"Found {len(matched_devices)} matching devices.")
 
             # Connect to first matching Bluetooth device
             device = matched_devices[0]
@@ -93,15 +90,6 @@ async def connect_ble(notification_handler: noti_handler_T, identifier: Optional
                 # This is expected on Mac
                 pass
             logger.info("Pairing complete!")
-
-            # Enable notifications on all notifiable characteristics
-            logger.info("Enabling notifications...")
-            for service in client.services:
-                for char in service.characteristics:
-                    if "notify" in char.properties:
-                        logger.info(f"Enabling notification on char {char.uuid}")
-                        await client.start_notify(char, notification_handler)
-            logger.info("Done enabling notifications")
 
             return client
         except Exception as exc:  # pylint: disable=broad-exception-caught

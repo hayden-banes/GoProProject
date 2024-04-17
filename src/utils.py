@@ -1,7 +1,7 @@
 import asyncio
 from open_gopro import WiredGoPro
 from time import sleep
-import requests, json
+import requests, socket
 import ble_wakeup.ble_connect
 
 class Utils:
@@ -14,15 +14,29 @@ class Utils:
         attempts = 0 #Attempts to connect
         while attempts < 5:
             try:
-                assert (requests.get(self.base_url + "/gopro/camera/control/wired_usb?p=1")).ok
-                print("Connected!")
-                attempts = 5
-                return 0
-            except Exception as e:
+                attempts += 1
                 print("Attempting wake up via BLE")
-                await ble_wakeup.ble_connect.main(self.identifier)
+                client = await ble_wakeup.ble_connect.connect_ble(self.identifier)
+                await client.disconnect()
 
-            attempts += 1
+                #Try HTTP request
+               
+
+            except RuntimeError as e:
+                print(e)
+                print("No bluetooth devices were found, maybe its already on?")
+
+            try:
+                response = requests.get(self.base_url + "/gopro/camera/control/wired_usb?p=1",timeout=10)
+                if response.ok:
+                    print("Connected!")
+                    attempts = 5
+                    return 0
+            except Exception as e:
+                print(e)
+        
+
+                
 
         return 1 #failure
 

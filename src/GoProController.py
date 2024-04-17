@@ -49,8 +49,10 @@ class GoProController():
 
                 if cmd == "status":
                     status = self.gopro.get_status().json()
-                    print(f"Photos taken: {self.photos_taken}")
+                    print(f"Photos taken this session: {self.photos_taken}")
+                    print(f"Photos on SD card: {status['status']['38']}")
                     print(f"Photos remaing: {status['status']['34']}")
+
                 
                 if cmd == "download":
                     #TODO Can only work if timelapse has been run in this session
@@ -94,7 +96,7 @@ class GoProController():
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
 
-        save_dest = './gproimg/'
+        save_dest = './gproimg/' #TODO absolute file paths
 
         count = 0 #Total images counter
         img_no = 0 #Transfered images counter
