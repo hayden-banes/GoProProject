@@ -34,17 +34,24 @@ class GoProController():
             while running:
                 cmd = input()
                 if cmd == "start":
-                    print(f"Starting timelapse for GoPro {args.identifier}")
-                    timelapse_signal.clear()
-                    _timelapse.start()
+                    if not _timelapse.is_alive():
+                        print(f"Starting timelapse for GoPro {args.identifier}")
+                        timelapse_signal.clear()
+                        _timelapse.start()
+                    else:
+                        print("Timelapse already running")
                 
                 if cmd == "stop":
                     if _timelapse.is_alive():
                         timelapse_signal.set()
                         _timelapse.join()
-                        print("timelapse stopped")
+                        print("Timelapse stopped")
+
+                        # Be ready for the next timelapse to start
+                        timelapse_signal.clear()
+                        _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
                     else:
-                        print("no timelapse active")
+                        print("No timelapse active")
 
                 if cmd == "status":
                     status = self.gopro.get_status().json()
@@ -55,7 +62,7 @@ class GoProController():
                 
                 if cmd == "download":
                     if _timelapse.is_alive():
-                        print("please stop the current timelapse before downloading")
+                        print("Please stop the current timelapse before downloading")
                     else:
                         self.download()
                 if cmd == "clearSD":
