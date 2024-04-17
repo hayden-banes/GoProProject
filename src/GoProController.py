@@ -4,7 +4,6 @@ from utils import Utils
 from threading import Thread, Event
 from time import sleep
 import requests
-import ble_wakeup.ble_connect
 
 
 
@@ -27,7 +26,7 @@ class GoProController():
             keep_alive_signal = Event()
             _keep_alive = Thread(target=self.gopro.keep_alive, args=(keep_alive_signal,))
             _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
-            
+
             _keep_alive.start()
         
             running = True
@@ -37,10 +36,9 @@ class GoProController():
                 if cmd == "start":
                     print(f"Starting timelapse for GoPro {args.identifier}")
                     timelapse_signal.clear()
-                    # TODO This can create endless threads, consider moving outside the loop so only one thread per GP
                     _timelapse.start()
                 
-                if cmd == "stop": # TODO will throw an exception is the thread is not running
+                if cmd == "stop":
                     if _timelapse.is_alive():
                         timelapse_signal.set()
                         _timelapse.join()
@@ -56,7 +54,6 @@ class GoProController():
 
                 
                 if cmd == "download":
-                    #TODO Can only work if timelapse has been run in this session
                     if _timelapse.is_alive():
                         print("please stop the current timelapse before downloading")
                     else:
