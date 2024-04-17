@@ -10,8 +10,8 @@ import requests
 class GoProController():
     def __init__(self, args) -> None:
         self.args = args
-        self.gopro = Utils(args.identifier)
-        self.interval = 10
+        self.gopro = Utils(self.args.identifier)
+        self.interval = self.args.interval
         self.photos_taken = 0
 
     async def run(self) -> None:
@@ -25,7 +25,7 @@ class GoProController():
             timelapse_signal = Event()
             keep_alive_signal = Event()
             _keep_alive = Thread(target=self.gopro.keep_alive, args=(keep_alive_signal,))
-            _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
+            _timelapse = Thread(target=self.timelapse, args=(timelapse_signal,))
 
             _keep_alive.start()
         
@@ -49,7 +49,7 @@ class GoProController():
 
                         # Be ready for the next timelapse to start
                         timelapse_signal.clear()
-                        _timelapse = Thread(target=self.timelapse, args=(self.interval,timelapse_signal))
+                        _timelapse = Thread(target=self.timelapse, args=(timelapse_signal,))
                     else:
                         print("No timelapse active")
 
@@ -58,7 +58,15 @@ class GoProController():
                     print(f"Photos taken this session: {self.photos_taken}")
                     print(f"Photos on SD card: {status['status']['38']}")
                     print(f"Photos remaing: {status['status']['34']}")
+                    print(f"Timelapse interval: {self.interval}")
 
+                if cmd == "interval":
+                    cmd = input("Enter interval (seconds): ")
+                    if cmd.isnumeric():
+                        self.interval = int(cmd)
+                        print(f"Interval changed to {self.interval}")
+                    else:
+                        print("Error: please enter a positive integer only")
                 
                 if cmd == "download":
                     if _timelapse.is_alive():
@@ -70,16 +78,18 @@ class GoProController():
                         self.delete_all()
                         print("SD Card Cleared")
 
-                if cmd == "h":
+                if cmd == "h" or cmd == "help":
                     print("start")
                     print("stop")
                     print("status")
                     print("download")
                     print("q")
 
-                elif cmd == "q":
+                if cmd == "q" or cmd == "quit":
                     running = False
                     break;
+        
+                
         
 
         except Exception as e:
@@ -134,13 +144,13 @@ class GoProController():
         except requests.exceptions.RequestException as e:
             print("error")
 
-    def timelapse(self,interval,quit_signal):
+    def timelapse(self,quit_signal):
         url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
-        response = requests.get(url, timeout = 2)
+        assert (requests.get(url, timeout = 2)).ok
         while not quit_signal.is_set():
             assert(requests.get(self.gopro.base_url + "/gopro/camera/shutter/start", timeout=2)).ok
             self.photos_taken += 1
-            sleep(interval)
+            sleep(self.interval)
 
     def set_auto_powerdown_off(self):
         url = self.gopro.base_url + "/gopro/camera/setting?setting=59&option=0"
@@ -165,15 +175,19 @@ class GoProController():
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "identifier",
+        "-identifier",
         type=str,
         help="last 4 digits of the serial number",
         nargs='?',
         default="4933"
     )
     parser.add_argument(
-        "-d",
-        "--interval"
+        "-interval",
+        # "--interval",
+        type=int,
+        help="interval between photos in timelapse (default: 10. Can be changed later)",
+        nargs='?',
+        default=10
     )
     return parser.parse_args()
 
