@@ -1,8 +1,10 @@
 import argparse
+import asyncio
 from utils import Utils
 from threading import Thread, Event
 from time import sleep
 import requests
+import ble_wakeup.ble_connect
 
 
 
@@ -13,12 +15,13 @@ class GoProController():
         self.interval = 10
         self.photos_taken = 0
 
-    def run(self) -> None:
+    async def run(self) -> None:
         print("type h for help")
 
         try:
             #Check gopro exists/is connected
-            # self.gopro.check()
+            if await self.gopro.connect():
+                raise Exception(f"Could not connect to GoPro {self.gopro.identifier}")
 
             timelapse_signal = Event()
             keep_alive_signal = Event()
@@ -46,8 +49,10 @@ class GoProController():
 
                 if cmd == "status":
                     status = self.gopro.get_status().json()
-                    print(f"Photos taken: {self.photos_taken}")
+                    print(f"Photos taken this session: {self.photos_taken}")
+                    print(f"Photos on SD card: {status['status']['38']}")
                     print(f"Photos remaing: {status['status']['34']}")
+
                 
                 if cmd == "download":
                     #TODO Can only work if timelapse has been run in this session
@@ -91,7 +96,7 @@ class GoProController():
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
 
-        save_dest = './gproimg/'
+        save_dest = './gproimg/' #TODO absolute file paths
 
         count = 0 #Total images counter
         img_no = 0 #Transfered images counter
@@ -171,5 +176,6 @@ def parse_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_arguments()
+    # asyncio.run(ble_wakeup.ble_connect.main(args.identifier))
     controller = GoProController(args)
-    controller.run()
+    asyncio.run(controller.run())
