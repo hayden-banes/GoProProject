@@ -112,7 +112,7 @@ class GoProController():
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
 
-        path = Path(__file__).parent / "../goproimg"
+        path = (Path(__file__).parent / "../gproimg/").resolve()
 
         count = 0 #Total images counter
         img_no = 0 #Transfered images counter
@@ -139,7 +139,7 @@ class GoProController():
         try:
             with requests.get(url, timeout=2,stream=True) as response:
                 response.raise_for_status()
-                with open(f'{dest}{srcimage}', 'wb') as f:
+                with open(f'{dest}/{srcimage}', 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
         except requests.exceptions.RequestException as e:
