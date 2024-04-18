@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from pathlib import Path
 from utils import Utils
 from threading import Thread, Event
 from time import sleep
@@ -111,7 +112,7 @@ class GoProController():
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
 
-        save_dest = './gproimg/' #TODO absolute file paths
+        path = Path(__file__).parent / "../goproimg"
 
         count = 0 #Total images counter
         img_no = 0 #Transfered images counter
@@ -121,7 +122,7 @@ class GoProController():
 
         for media in response['media']:
             for image in media['fs']:
-                self.download_media(dest=save_dest, srcfolder=media['d'], srcimage=image['n'])
+                self.download_media(dest=path, srcfolder=media['d'], srcimage=image['n'])
 
                 #If delete flag is enabled
                 #TODO Verify image has been safely downloaded before deleting
