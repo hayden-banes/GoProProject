@@ -6,108 +6,106 @@ from threading import Thread, Event
 from time import sleep
 import requests
 
-
-
 class GoProController():
     def __init__(self, args) -> None:
         self.args = args
         self.gopro = Utils(self.args.identifier)
-        self.interval = self.args.interval
+        self.interval: int = self.args.interval
         self.photos_taken = 0
+        self.timelapse_signal = Event()
+        self.keep_alive_signal = Event()
+        self._keep_alive = Thread(target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
+        self._timelapse = Thread(target=self.timelapse, args=(self.timelapse_signal,))
+        self.commands = ["start","stop","status","download","clearSD", "h or help","q or quit"]
 
     async def run(self) -> None:
         print("type h for help")
 
         try:
             #Check gopro exists/is connected
-            if await self.gopro.connect():
-                raise Exception(f"Could not connect to GoPro {self.gopro.identifier}")
+            await self.check_gopro()
 
-            timelapse_signal = Event()
-            keep_alive_signal = Event()
-            _keep_alive = Thread(target=self.gopro.keep_alive, args=(keep_alive_signal,))
-            _timelapse = Thread(target=self.timelapse, args=(timelapse_signal,))
-
-            _keep_alive.start()
-        
+            self._keep_alive.start()
             running = True
 
             while running:
                 cmd = input()
                 if cmd == "start":
-                    if not _timelapse.is_alive():
-                        print(f"Starting timelapse for GoPro {args.identifier}")
-                        timelapse_signal.clear()
-                        _timelapse.start()
-                    else:
-                        print("Timelapse already running")
+                    self.start()
                 
                 if cmd == "stop":
-                    if _timelapse.is_alive():
-                        timelapse_signal.set()
-                        _timelapse.join()
-                        print("Timelapse stopped")
-
-                        # Be ready for the next timelapse to start
-                        timelapse_signal.clear()
-                        _timelapse = Thread(target=self.timelapse, args=(timelapse_signal,))
-                    else:
-                        print("No timelapse active")
+                    self.stop()
 
                 if cmd == "status":
-                    status = self.gopro.get_status().json()
-                    print(f"Photos taken this session: {self.photos_taken}")
-                    print(f"Photos on SD card: {status['status']['38']}")
-                    print(f"Photos remaing: {status['status']['34']}")
-                    print(f"Timelapse interval: {self.interval}")
+                    self.status()
 
                 if cmd == "interval":
-                    cmd = input("Enter interval (seconds): ")
-                    if cmd.isnumeric():
-                        self.interval = int(cmd)
-                        print(f"Interval changed to {self.interval}")
-                    else:
-                        print("Error: please enter a positive integer only")
+                    self.change_interval()
                 
                 if cmd == "download":
-                    if _timelapse.is_alive():
-                        print("Please stop the current timelapse before downloading")
-                    else:
-                        self.download()
+                    self.download()
+
                 if cmd == "clearSD":
-                    if input("Confirm clear SD card? (y/n): ") == 'y':
-                        self.delete_all()
-                        print("SD Card Cleared")
+                    self.clear_sd()
 
                 if cmd == "h" or cmd == "help":
-                    print("start")
-                    print("stop")
-                    print("status")
-                    print("download")
-                    print("q")
+                    self.show_help()
 
                 if cmd == "q" or cmd == "quit":
                     running = False
-                    break;
-        
-                
-        
 
         except Exception as e:
             print(e)
-            print(e.__traceback__.tb_lineno)
+            print(e.__traceback__.tb_lineno) # type: ignore
         
-        print("Stopping background tasks", end="\r")
-        timelapse_signal.set()
-        print("Stopping background tasks.",end="\r")
-        keep_alive_signal.set()
-        print("Stopping background tasks..",end="\r")
-        if _keep_alive.is_alive(): _keep_alive.join()
-        print("Stopping background tasks...")
-        if _timelapse.is_alive(): _timelapse.join()
-        print("Goodbye!")
+        self.stop_tasks()
+
+    async def check_gopro(self):
+        if await self.gopro.connect():
+            raise Exception(f"Could not connect to GoPro {self.gopro.identifier}")
+
+
+    def start(self):
+        if not self._timelapse.is_alive():
+            print(f"Starting timelapse for GoPro {args.identifier}")
+            self.timelapse_signal.clear()
+            self._timelapse.start()
+        else:
+            print("Timelapse already running")
+
+    def stop(self):
+        if self._timelapse.is_alive():
+            self.timelapse_signal.set()
+            self._timelapse.join()
+            print("Timelapse stopped")
+
+            # Be ready for the next timelapse to start
+            self.timelapse_signal.clear()
+            self._timelapse = Thread(target=self.timelapse, args=(self.timelapse_signal,))
+
+        else:
+            print("No timelapse active")
+
+    def status(self):
+        status = self.gopro.get_status().json()
+        print(f"Photos taken this session: {self.photos_taken}")
+        print(f"Photos on SD card: {status['status']['38']}")
+        print(f"Photos remaing: {status['status']['34']}")
+        print(f"Timelapse interval: {self.interval}")
+
+    def change_interval(self):
+        cmd = input("Enter interval (seconds): ")
+        if cmd.isnumeric():
+            self.interval = int(cmd)
+            print(f"Interval changed to {self.interval}")
+        else:
+            print("Error: please enter a positive integer only")
 
     def download(self):
+        if self._timelapse.is_alive():
+            print("Please stop the current timelapse before downloading")
+            return
+
         delete = input("Delete pictures from camera too? (y/n): ") == 'y'
         url = self.gopro.base_url + "/gopro/media/list"
         response = requests.get(url, timeout=2).json()
@@ -144,6 +142,28 @@ class GoProController():
                         f.write(chunk)
         except requests.exceptions.RequestException as e:
             print("error")
+    
+    def clear_sd(self):
+        if input("Confirm clear SD card? (y/n): ") == 'y':
+            self.delete_all()
+            print("SD Card Cleared")
+        else:
+            print("SD Card not cleared")
+
+    def show_help(self):
+        for cmd in self.commands:
+            print(cmd)
+
+    def stop_tasks(self):
+        print("Stopping background tasks", end="\r")
+        self.timelapse_signal.set()
+        print("Stopping background tasks.",end="\r")
+        self.keep_alive_signal.set()
+        print("Stopping background tasks..",end="\r")
+        if self._keep_alive.is_alive(): self._keep_alive.join()
+        print("Stopping background tasks...")
+        if self._timelapse.is_alive(): self._timelapse.join()
+        print("Goodbye!")
 
     def timelapse(self,quit_signal):
         url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
@@ -169,7 +189,7 @@ class GoProController():
         url = self.gopro.base_url + "/gp/gpControl/command/storage/delete/all"
         requests.get(url, timeout=2)
 
-    def upload_to_gdrive():
+    def upload_to_gdrive(self):
         return 1
 
 
