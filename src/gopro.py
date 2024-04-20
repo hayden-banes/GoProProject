@@ -10,6 +10,7 @@ class GoPro:
     async def connect(self):
         attempts = 0  # Attempts to connect
         while attempts < 5:
+
             try:
                 attempts += 1
                 print("Attempting wake up via BLE")
@@ -17,19 +18,19 @@ class GoPro:
                 await client.disconnect()
 
             except RuntimeError as e:
-                print(e)
-                print("No bluetooth devices were found, maybe its already on?")
+                print(f"Attempt #{attempts} : {e}")
 
+            sleep(2) # 
             # Try HTTP request
             try:
                 response = requests.get(
-                    self.base_url + "/gopro/camera/control/wired_usb?p=1", timeout=10)
+                    self.base_url + "/gopro/camera/control/wired_usb?p=1", timeout=2)
                 if response.ok:
-                    print("Connected!")
+                    print("Connected via USB!")
                     attempts = 5
                     return 0
-            except Exception as e:
-                print(e)
+            except requests.Timeout as e:
+                print("Retrying wakeup")
 
         return 1  # failure
 
