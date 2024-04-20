@@ -100,11 +100,11 @@ class GoProController():
 
     def change_interval(self):
         cmd = input("Enter interval (seconds): ")
-        if cmd.isnumeric():
-            self.interval = int(cmd)
+        if cmd.isnumeric() and (new_interval := int(cmd)) >= 3:
+            self.interval = new_interval
             print(f"Interval changed to {self.interval}")
         else:
-            print("Error: please enter a positive integer only")
+            print("Error: please enter a positive integer larger than 3")
 
     def download(self):
         if self._timelapse.is_alive():
