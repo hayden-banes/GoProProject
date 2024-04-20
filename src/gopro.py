@@ -31,9 +31,7 @@ class GoPro:
             except RuntimeError as e:
                 print(f"Attempt #{attempts} : {e}")
 
-            sleep(2) # 
-            
-
+            sleep(2)
 
         return 1  # failure
 
