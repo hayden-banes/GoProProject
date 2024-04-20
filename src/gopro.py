@@ -2,6 +2,7 @@ from time import sleep
 import requests
 import ble_wakeup.ble_connect
 
+
 class GoPro:
     def __init__(self, identifier):
         self.identifier = identifier
@@ -10,6 +11,16 @@ class GoPro:
     async def connect(self):
         attempts = 0  # Attempts to connect
         while attempts < 5:
+
+            try:
+                response = requests.get(
+                    self.base_url + "/gopro/camera/control/wired_usb?p=1", timeout=2)
+                if response.ok:
+                    print("Connected via USB!")
+                    attempts = 5
+                    return 0
+            except requests.Timeout as e:
+                print("(re)trying wakeup")
 
             try:
                 attempts += 1
@@ -21,16 +32,8 @@ class GoPro:
                 print(f"Attempt #{attempts} : {e}")
 
             sleep(2) # 
-            # Try HTTP request
-            try:
-                response = requests.get(
-                    self.base_url + "/gopro/camera/control/wired_usb?p=1", timeout=2)
-                if response.ok:
-                    print("Connected via USB!")
-                    attempts = 5
-                    return 0
-            except requests.Timeout as e:
-                print("Retrying wakeup")
+            
+
 
         return 1  # failure
 
