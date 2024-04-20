@@ -1,28 +1,32 @@
 import argparse
 import asyncio
 from pathlib import Path
-from utils import Utils
+from gopro import GoPro
 from threading import Thread, Event
 from time import sleep
 import requests
 
+
 class GoProController():
     def __init__(self, args) -> None:
         self.args = args
-        self.gopro = Utils(self.args.identifier)
+        self.gopro = GoPro(self.args.identifier)
         self.interval: int = self.args.interval
         self.photos_taken = 0
         self.timelapse_signal = Event()
         self.keep_alive_signal = Event()
-        self._keep_alive = Thread(target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
-        self._timelapse = Thread(target=self.timelapse, args=(self.timelapse_signal,))
-        self.commands = ["start","stop","status","download","clearSD", "h or help","q or quit"]
+        self._keep_alive = Thread(
+            target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
+        self._timelapse = Thread(
+            target=self.timelapse, args=(self.timelapse_signal,))
+        self.commands = ["start", "stop", "status",
+                         "download", "clearSD", "h or help", "q or quit"]
 
     async def run(self) -> None:
         print("type h for help")
 
         try:
-            #Check gopro exists/is connected
+            # Check gopro exists/is connected
             await self.check_gopro()
 
             self._keep_alive.start()
@@ -32,7 +36,7 @@ class GoProController():
                 cmd = input()
                 if cmd == "start":
                     self.start()
-                
+
                 if cmd == "stop":
                     self.stop()
 
@@ -41,7 +45,7 @@ class GoProController():
 
                 if cmd == "interval":
                     self.change_interval()
-                
+
                 if cmd == "download":
                     self.download()
 
@@ -56,18 +60,18 @@ class GoProController():
 
         except Exception as e:
             print(e)
-            print(e.__traceback__.tb_lineno) # type: ignore
-        
+            print(e.__traceback__.tb_lineno)  # type: ignore
+
         self.stop_tasks()
 
     async def check_gopro(self):
         if await self.gopro.connect():
-            raise Exception(f"Could not connect to GoPro {self.gopro.identifier}")
-
+            raise Exception(
+                f"Could not connect to GoPro {self.gopro.identifier}")
 
     def start(self):
         if not self._timelapse.is_alive():
-            print(f"Starting timelapse for GoPro {args.identifier}")
+            print(f"Starting timelapse for GoPro {self.args.identifier}")
             self.timelapse_signal.clear()
             self._timelapse.start()
         else:
@@ -81,7 +85,8 @@ class GoProController():
 
             # Be ready for the next timelapse to start
             self.timelapse_signal.clear()
-            self._timelapse = Thread(target=self.timelapse, args=(self.timelapse_signal,))
+            self._timelapse = Thread(
+                target=self.timelapse, args=(self.timelapse_signal,))
 
         else:
             print("No timelapse active")
@@ -112,37 +117,40 @@ class GoProController():
 
         path = (Path(__file__).parent / "../gproimg/").resolve()
 
-        count = 0 #Total images counter
-        img_no = 0 #Transfered images counter
+        count = 0  # Total images counter
+        img_no = 0  # Transfered images counter
 
         for media in response['media']:
             count += len(media['fs'])
 
         for media in response['media']:
             for image in media['fs']:
-                self.download_media(dest=path, srcfolder=media['d'], srcimage=image['n'])
+                self.download_media(
+                    dest=path, srcfolder=media['d'], srcimage=image['n'])
 
-                #If delete flag is enabled
-                #TODO Verify image has been safely downloaded before deleting
-                if delete: self.delete_img(srcfolder=media['d'], srcimage=image['n'])
+                # If delete flag is enabled
+                # TODO Verify image has been safely downloaded before deleting
+                if delete:
+                    self.delete_img(srcfolder=media['d'], srcimage=image['n'])
 
-                #Provide an update on file transfer
-                img_no+=1 
-                if img_no % 5 == 0 : print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
-        
-        print('100% - Done!') #To give a clean ending
+                # Provide an update on file transfer
+                img_no += 1
+                if img_no % 5 == 0:
+                    print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
+
+        print('100% - Done!')  # To give a clean ending
 
     def download_media(self, dest, srcfolder, srcimage):
         url = self.gopro.base_url + f"/videos/DCIM/{srcfolder}/{srcimage}"
         try:
-            with requests.get(url, timeout=2,stream=True) as response:
+            with requests.get(url, timeout=2, stream=True) as response:
                 response.raise_for_status()
                 with open(f'{dest}/{srcimage}', 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
         except requests.exceptions.RequestException as e:
             print("error")
-    
+
     def clear_sd(self):
         if input("Confirm clear SD card? (y/n): ") == 'y':
             self.delete_all()
@@ -157,34 +165,38 @@ class GoProController():
     def stop_tasks(self):
         print("Stopping background tasks", end="\r")
         self.timelapse_signal.set()
-        print("Stopping background tasks.",end="\r")
+        print("Stopping background tasks.", end="\r")
         self.keep_alive_signal.set()
-        print("Stopping background tasks..",end="\r")
-        if self._keep_alive.is_alive(): self._keep_alive.join()
+        print("Stopping background tasks..", end="\r")
+        if self._keep_alive.is_alive():
+            self._keep_alive.join()
         print("Stopping background tasks...")
-        if self._timelapse.is_alive(): self._timelapse.join()
+        if self._timelapse.is_alive():
+            self._timelapse.join()
         print("Goodbye!")
 
-    def timelapse(self,quit_signal):
+    def timelapse(self, quit_signal):
         url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
-        assert (requests.get(url, timeout = 2)).ok
+        assert (requests.get(url, timeout=2)).ok
         while not quit_signal.is_set():
-            assert(requests.get(self.gopro.base_url + "/gopro/camera/shutter/start", timeout=2)).ok
+            assert (requests.get(self.gopro.base_url +
+                    "/gopro/camera/shutter/start", timeout=2)).ok
             self.photos_taken += 1
             sleep(self.interval)
 
     def set_auto_powerdown_off(self):
         url = self.gopro.base_url + "/gopro/camera/setting?setting=59&option=0"
-        response = requests.get(url, timeout = 2)
+        response = requests.get(url, timeout=2)
 
     def set_auto_powerdown_on(self):
         url = "/gopro/camera/setting?setting=59&option=4"
-        response = requests.get(url, timeout = 2)
+        response = requests.get(url, timeout=2)
 
     def delete_img(self, srcfolder, srcimage):
-        url = self.gopro.base_url + f"/gopro/media/delete/file?path={srcfolder}/{srcimage}"
+        url = self.gopro.base_url + \
+            f"/gopro/media/delete/file?path={srcfolder}/{srcimage}"
         requests.get(url, timeout=2)
-    
+
     def delete_all(self):
         url = self.gopro.base_url + "/gp/gpControl/command/storage/delete/all"
         requests.get(url, timeout=2)
@@ -211,7 +223,6 @@ def parse_arguments() -> argparse.Namespace:
         default=10
     )
     return parser.parse_args()
-
 
 
 if __name__ == "__main__":

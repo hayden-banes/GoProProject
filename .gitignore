@@ -152,12 +152,15 @@ cython_debug/
 #.idea/
 
 
-#OpenGoPro
+# OpenGoPro
 OpenGoPro/
 
-#DS_Store files (unrelated to project - part of macOS).
+# DS_Store files (unrelated to project - part of macOS).
 .DS_Store
 **/.DS_Store
 
-#Downloaded images
+# Downloaded images
 gproimg/
+
+# VSCode
+.vscode/
