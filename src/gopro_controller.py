@@ -1,9 +1,10 @@
-import argparse
-import asyncio
 from pathlib import Path
 from gopro import GoPro
+from timelapse import Timelapse
 from threading import Thread, Event
-from time import sleep
+
+import argparse
+import asyncio
 import requests
 
 
@@ -11,14 +12,11 @@ class GoProController():
     def __init__(self, args) -> None:
         self.args = args
         self.gopro = GoPro(self.args.identifier)
-        self.interval: int = self.args.interval
-        self.photos_taken = 0
-        self.timelapse_signal = Event()
+        self.timelapse = Timelapse(self.gopro)
         self.keep_alive_signal = Event()
         self._keep_alive = Thread(
             target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
-        self._timelapse = Thread(
-            target=self.timelapse, args=(self.timelapse_signal,))
+
         self.commands = ["start", "stop", "status",
                          "download", "clearSD", "h or help", "q or quit"]
 
@@ -27,7 +25,7 @@ class GoProController():
 
         try:
             # Check gopro exists/is connected
-            await self.check_gopro()
+            await self.gopro.check_gopro()
 
             self._keep_alive.start()
             running = True
@@ -35,16 +33,16 @@ class GoProController():
             while running:
                 cmd = input()
                 if cmd == "start":
-                    self.start()
+                    self.timelapse.start()
 
                 if cmd == "stop":
-                    self.stop()
+                    self.timelapse.stop()
 
                 if cmd == "status":
                     self.status()
 
                 if cmd == "interval":
-                    self.change_interval()
+                    self.timelapse.change_interval()
 
                 if cmd == "download":
                     self.download()
@@ -64,50 +62,15 @@ class GoProController():
 
         self.stop_tasks()
 
-    async def check_gopro(self):
-        if await self.gopro.connect():
-            raise Exception(
-                f"Could not connect to GoPro {self.gopro.identifier}")
-
-    def start(self):
-        if not self._timelapse.is_alive():
-            print(f"Starting timelapse for GoPro {self.args.identifier}")
-            self.timelapse_signal.clear()
-            self._timelapse.start()
-        else:
-            print("Timelapse already running")
-
-    def stop(self):
-        if self._timelapse.is_alive():
-            self.timelapse_signal.set()
-            self._timelapse.join()
-            print("Timelapse stopped")
-
-            # Be ready for the next timelapse to start
-            self.timelapse_signal.clear()
-            self._timelapse = Thread(
-                target=self.timelapse, args=(self.timelapse_signal,))
-
-        else:
-            print("No timelapse active")
-
     def status(self):
         status = self.gopro.get_status().json()
-        print(f"Photos taken this session: {self.photos_taken}")
+        print(f"Photos taken this session: {self.timelapse.photos_taken}")
         print(f"Photos on SD card: {status['status']['38']}")
         print(f"Photos remaing: {status['status']['34']}")
-        print(f"Timelapse interval: {self.interval}")
-
-    def change_interval(self):
-        cmd = input("Enter interval (seconds): ")
-        if cmd.isnumeric() and (new_interval := int(cmd)) >= 3:
-            self.interval = new_interval
-            print(f"Interval changed to {self.interval}")
-        else:
-            print("Error: please enter a positive integer larger than 3")
+        print(f"Timelapse interval: {self.timelapse.interval}")
 
     def download(self):
-        if self._timelapse.is_alive():
+        if self.timelapse.is_running():
             print("Please stop the current timelapse before downloading")
             return
 
@@ -164,25 +127,14 @@ class GoProController():
 
     def stop_tasks(self):
         print("Stopping background tasks", end="\r")
-        self.timelapse_signal.set()
+        self.timelapse.stop(quiet=True)
         print("Stopping background tasks.", end="\r")
         self.keep_alive_signal.set()
         print("Stopping background tasks..", end="\r")
         if self._keep_alive.is_alive():
             self._keep_alive.join()
         print("Stopping background tasks...")
-        if self._timelapse.is_alive():
-            self._timelapse.join()
         print("Goodbye!")
-
-    def timelapse(self, quit_signal):
-        url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
-        assert (requests.get(url, timeout=2)).ok
-        while not quit_signal.is_set():
-            assert (requests.get(self.gopro.base_url +
-                    "/gopro/camera/shutter/start", timeout=2)).ok
-            self.photos_taken += 1
-            sleep(self.interval)
 
     def set_auto_powerdown_off(self):
         url = self.gopro.base_url + "/gopro/camera/setting?setting=59&option=0"
@@ -227,6 +179,5 @@ def parse_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_arguments()
-    # asyncio.run(ble_wakeup.ble_connect.main(args.identifier))
     controller = GoProController(args)
     asyncio.run(controller.run())
