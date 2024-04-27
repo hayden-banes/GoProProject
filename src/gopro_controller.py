@@ -1,10 +1,10 @@
-import argparse
-import asyncio
 from pathlib import Path
 from gopro import GoPro
 from timelapse import Timelapse
 from threading import Thread, Event
-from time import sleep
+
+import argparse
+import asyncio
 import requests
 
 

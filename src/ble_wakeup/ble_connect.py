@@ -2,14 +2,12 @@
 # This copyright was auto-generated on Wed, Sep  1, 2021  5:05:56 PM
 
 import re
-import sys
 import asyncio
-import argparse
 from typing import Dict, Any, List, Optional
 
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice as BleakDevice
-from ble_wakeup import logger, noti_handler_T
+from ble_wakeup import logger
 
 
 def exception_handler(loop: asyncio.AbstractEventLoop, context: Dict[str, Any]) -> None:

@@ -1,4 +1,5 @@
 from time import sleep
+
 import requests
 import ble_wakeup.ble_connect
 
@@ -31,7 +32,7 @@ class GoPro:
             except RuntimeError as e:
                 print(f"Attempt #{attempts} : {e}")
 
-            sleep(2)
+            sleep(2) # Wait for the camera
 
         return 1  # failure
 
