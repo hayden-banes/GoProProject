@@ -65,6 +65,7 @@ class Timelapse:
     
     def toggle_schedule(self):
         self.scheduled = not self.scheduled
+        print(f"Schedule is {'On' if self.scheduled else 'Off'}")
 
     def set_schedule(self):
         print("use time format hhmm (e.g. 0800 or 1730)")
