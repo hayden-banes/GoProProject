@@ -52,3 +52,7 @@ class GoPro:
 
     def get_status(self):
         return requests.get(self.base_url + "/gopro/camera/state", timeout=2)
+    
+    def start_shutter(self):
+        return requests.get(self.base_url + "/gopro/camera/shutter/start", timeout=2)
+        
