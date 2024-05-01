@@ -13,7 +13,8 @@ class Timelapse:
         self.timelapse_preset_url = self.gopro.base_url + "/gopro/camera/presets/load?id=65536"
         self.timelapse_signal = Event()
         self._timelapse = Thread(
-            target=self.timelapse_task, args=())
+            target=self.timelapse_task, args=()
+        )
         self.start_time = datetime.strptime("0800", "%H%M").time()
         self.end_time = datetime.strptime("1800", "%H%M").time()
         self.scheduled = False
@@ -34,7 +35,8 @@ class Timelapse:
 
             self.timelapse_signal.clear()
             self._timelapse = Thread(
-                target=self.timelapse_task, args=())
+                target=self.timelapse_task, args=()
+            )
         else:
             if not quiet: print("No timelapse active")
 

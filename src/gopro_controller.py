@@ -13,21 +13,20 @@ class GoProController():
         self.args = args
         self.gopro = GoPro(self.args.identifier)
         self.timelapse = Timelapse(self.gopro)
-        self.keep_alive_signal = Event()
-        self._keep_alive = Thread(
-            target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
 
     async def run(self) -> None:
         print("type h for help")
 
         try:
-            # Check gopro exists/is connected
-            await self.gopro.check_gopro()
-
-            self._keep_alive.start()
+          
             running = True
 
             while running:
+                # Check gopro exists/is connected
+                if not self.gopro.is_alive():
+                    await self.gopro.check_gopro()
+                    self.gopro.start()
+
                 cmd = input()
                 if cmd == "start":
                     self.timelapse.start()
@@ -60,8 +59,8 @@ class GoProController():
                     running = False
 
         except Exception as e:
-            print(e)
-            print(e.__traceback__.tb_lineno)  # type: ignore
+            # print(e)
+            print(f"Error occured on line: {e.__traceback__.tb_lineno}")  # type: ignore
 
         self.stop_tasks()
 
@@ -136,10 +135,8 @@ class GoProController():
         print("Stopping background tasks", end="\r")
         self.timelapse.stop(quiet=True)
         print("Stopping background tasks.", end="\r")
-        self.keep_alive_signal.set()
+        self.gopro.stop(quiet=True)
         print("Stopping background tasks..", end="\r")
-        if self._keep_alive.is_alive():
-            self._keep_alive.join()
         print("Stopping background tasks...")
         print("Goodbye!")
 
