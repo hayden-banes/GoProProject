@@ -17,9 +17,6 @@ class GoProController():
         self._keep_alive = Thread(
             target=self.gopro.keep_alive, args=(self.keep_alive_signal,))
 
-        self.commands = ["start", "stop", "status",
-                         "download", "clearSD", "h or help", "q or quit"]
-
     async def run(self) -> None:
         print("type h for help")
 
@@ -43,6 +40,12 @@ class GoProController():
 
                 if cmd == "interval":
                     self.timelapse.change_interval()
+                
+                if cmd == "tschedule":
+                    self.timelapse.toggle_schedule()
+                
+                if cmd == "sschedule":
+                    self.timelapse.set_schedule()
 
                 if cmd == "download":
                     self.download()
@@ -68,6 +71,8 @@ class GoProController():
         print(f"Photos on SD card: {status['status']['38']}")
         print(f"Photos remaing: {status['status']['34']}")
         print(f"Timelapse interval: {self.timelapse.interval}")
+        print(f"Timelapse schedued? {self.timelapse.scheduled}")
+        if self.timelapse.scheduled: print(f"Timelapse schedule {self.timelapse.get_schedule()}")
 
     def download(self):
         if self.timelapse.is_running():
@@ -122,7 +127,9 @@ class GoProController():
             print("SD Card not cleared")
 
     def show_help(self):
-        for cmd in self.commands:
+        commands = ["start", "stop", "status",
+                    "download", "clearSD", "h or help", "q or quit"]
+        for cmd in commands:
             print(cmd)
 
     def stop_tasks(self):
