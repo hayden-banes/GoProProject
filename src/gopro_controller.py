@@ -1,20 +1,20 @@
 from pathlib import Path
 from gopro import GoPro
 from timelapse import Timelapse
-from threading import Thread, Event
 
+import os
 import argparse
 import asyncio
 import requests
 
 
 class GoProController():
-    def __init__(self, args) -> None:
+    def __init__(self, args):
         self.args = args
         self.gopro = GoPro(self.args.identifier)
         self.timelapse = Timelapse(self.gopro)
 
-    async def run(self) -> None:
+    async def run(self):
         print("type h for help")
 
         try:
@@ -114,12 +114,27 @@ class GoProController():
 
     def download_media(self, dest, srcfolder, srcimage):
         url = self.gopro.base_url + f"/videos/DCIM/{srcfolder}/{srcimage}"
+        path = f"{dest}/{srcfolder}/{srcimage}"
+
+        if not os.path.exists(srcfolder):
+            os.makedirs(srcfolder)
+
         try:
+            #Download Image
             with requests.get(url, timeout=2, stream=True) as response:
                 response.raise_for_status()
-                with open(f'{dest}/{srcimage}', 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+                with open(path, 'wb') as f:
+                    f.write(response.content)
+
+            # #Fix metadata
+            # # /gopro/media/info?path = 100GOPRO/GOPR4763.JPG
+
+            # cre = requests.get(self.gopro.base_url + f"/gopro/media/info?path={srcfolder}/{srcimage}").json()['cre']
+            # img = Image.open(path)
+            # exif_data = piexif.load(img.info['exif'])
+            # creation_date = datetime.datetime.fromtimestamp(cre)
+            # exif_data['exif'][piexif.ExifIFD.DateTimeOriginal] = exif_data['exif'][piexif.ExifIFD.DateTimeDigitized]
+            
         except requests.exceptions.RequestException as e:
             print("error")
 
