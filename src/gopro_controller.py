@@ -24,6 +24,8 @@ class GoProController():
             while running:
                 # Check gopro exists/is connected
                 if not self.gopro.is_alive():
+                    self.timelapse.stop()
+                    self.gopro.stop()
                     await self.gopro.check_gopro()
                     self.gopro.start()
 
@@ -51,6 +53,9 @@ class GoProController():
 
                 if cmd == "clearSD":
                     self.clear_sd()
+                
+                if cmd == "retry":
+                    print("Retrying connections")
 
                 if cmd == "h" or cmd == "help":
                     self.show_help()
@@ -59,7 +64,7 @@ class GoProController():
                     running = False
 
         except Exception as e:
-            # print(e)
+            print(e)
             print(f"Error occured on line: {e.__traceback__.tb_lineno}")  # type: ignore
 
         self.stop_tasks()
@@ -133,9 +138,9 @@ class GoProController():
 
     def stop_tasks(self):
         print("Stopping background tasks", end="\r")
-        self.timelapse.stop(quiet=True)
+        self.timelapse.stop()
         print("Stopping background tasks.", end="\r")
-        self.gopro.stop(quiet=True)
+        self.gopro.stop()
         print("Stopping background tasks..", end="\r")
         print("Stopping background tasks...")
         print("Goodbye!")

@@ -22,18 +22,16 @@ class GoPro:
         else:
             print("Keep alive signal is already active")
 
-    def stop(self, quiet=False):
+    def stop(self):
         if self.is_alive():
             self.keep_alive_signal.set()
             self._keep_alive.join()
             print("Keep alive signal stopped")
 
-            self.keep_alive_signal.clear()
-            self._keep_alive = Thread(
-                target=self.keep_alive_task, args=()
-            )
-        else:
-            if not quiet: print("Keep alive signal is not active")
+        self.keep_alive_signal.clear()
+        self._keep_alive = Thread(
+            target=self.keep_alive_task, args=()
+        )
 
     def is_alive(self) -> bool:
         return self._keep_alive.is_alive()
@@ -80,7 +78,6 @@ class GoPro:
                 sleep(3)
         except requests.exceptions.RequestException as e:
             print("Failed to communicate with GoPro, type retry")
-            self.stop()
 
     def set_base_url(self):
         self.base_url = f"http://172.2{self.identifier[-3]}.1{self.identifier[:-2]}.51:8080"

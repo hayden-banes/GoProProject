@@ -27,18 +27,16 @@ class Timelapse:
         else:
             print("Timelapse already running")
 
-    def stop(self, quiet=False):
+    def stop(self):
         if self.is_running():
             self.timelapse_signal.set()
             self._timelapse.join()
             print("Timelapse stopped")
 
-            self.timelapse_signal.clear()
-            self._timelapse = Thread(
-                target=self.timelapse_task, args=()
-            )
-        else:
-            if not quiet: print("No timelapse active")
+        self.timelapse_signal.clear()
+        self._timelapse = Thread(
+            target=self.timelapse_task, args=()
+        )
 
     def change_interval(self):
         cmd = input("Enter interval (seconds): ")
@@ -49,12 +47,15 @@ class Timelapse:
             print("Error: please enter a positive integer larger than 3")
 
     def timelapse_task(self):
-        assert (requests.get(self.timelapse_preset_url, timeout=2)).ok
-        while not self.timelapse_signal.is_set():
-            if self.check_schedule():
-                assert (self.gopro.start_shutter()).ok
-                self.photos_taken += 1
-            sleep(self.interval)
+        try:
+            assert (requests.get(self.timelapse_preset_url, timeout=2)).ok
+            while not self.timelapse_signal.is_set():
+                if self.check_schedule():
+                    assert (self.gopro.start_shutter()).ok
+                    self.photos_taken += 1
+                sleep(self.interval)
+        except requests.exceptions.RequestException as e:
+            print("Communication error, stopping timelapse")
 
     def is_running(self) -> bool:
         return self._timelapse.is_alive()
