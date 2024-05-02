@@ -15,70 +15,22 @@ class GoProController():
         self.args = args
         self.gopro = GoPro(self.args.identifier)
         self.timelapse = Timelapse(self.gopro)
+        self.running = True
 
     async def run(self):
         print("type h for help")
-
+        # Check gopro exists/is connected
+        
+        self.gopro.start()
         try:
-          
-            running = True
-
-            while running:
-                # Check gopro exists/is connected
-                if not self.gopro.is_alive():
-                    self.timelapse.stop()
-                    self.gopro.stop()
-                    await self.gopro.check_gopro()
-                    self.gopro.start()
-
-                cmd = input()
-                if cmd == "start":
-                    self.timelapse.start()
-
-                if cmd == "stop":
-                    self.timelapse.stop()
-
-                if cmd == "status":
-                    self.status()
-
-                if cmd == "interval":
-                    self.timelapse.change_interval()
-                
-                if cmd == "tschedule":
-                    self.timelapse.toggle_schedule()
-                
-                if cmd == "sschedule":
-                    self.timelapse.set_schedule()
-
-                if cmd == "download":
-                    self.download()
-
-                if cmd == "clearSD":
-                    self.clear_sd()
-                
-                if cmd == "retry":
-                    print("Retrying connections")
-
-                if cmd == "h" or cmd == "help":
-                    self.show_help()
-
-                if cmd == "q" or cmd == "quit":
-                    running = False
+            while self.running:
+                self.commands()  
 
         except Exception as e:
             print(e)
             print(f"Error occured on line: {e.__traceback__.tb_lineno}")  # type: ignore
 
         self.stop_tasks()
-
-    def status(self):
-        status = self.gopro.get_status().json()
-        print(f"Photos taken this session: {self.timelapse.photos_taken}")
-        print(f"Photos on SD card: {status['status']['38']}")
-        print(f"Photos remaing: {status['status']['34']}")
-        print(f"Timelapse interval: {self.timelapse.interval}")
-        print(f"Timelapse schedued? {self.timelapse.scheduled}")
-        if self.timelapse.scheduled: print(f"Timelapse schedule {self.timelapse.get_schedule()}")
 
     def download(self):
         try:
@@ -203,6 +155,51 @@ class GoProController():
 
     def upload_to_gdrive(self):
         return 1
+    
+    def status(self):
+        status = self.gopro.get_status().json()
+        print(f"Photos taken this session: {self.timelapse.photos_taken}")
+        print(f"Photos on SD card: {status['status']['38']}")
+        print(f"Photos remaing: {status['status']['34']}")
+        print(f"Timelapse interval: {self.timelapse.interval}")
+        print(f"Timelapse schedued? {self.timelapse.scheduled}")
+        if self.timelapse.scheduled:
+            print(f"Timelapse schedule {self.timelapse.get_schedule()}")
+    
+    def commands(self):
+        cmd = input()
+        if cmd == "start":
+            self.timelapse.start()
+
+        if cmd == "stop":
+            self.timelapse.stop()
+
+        if cmd == "status":
+            self.status()
+
+        if cmd == "interval":
+            self.timelapse.change_interval()
+
+        if cmd == "tschedule":
+            self.timelapse.toggle_schedule()
+
+        if cmd == "sschedule":
+            self.timelapse.set_schedule()
+
+        if cmd == "download":
+            self.download()
+
+        if cmd == "clearSD":
+            self.clear_sd()
+
+        if cmd == "retry":
+            print("Retrying connections")
+
+        if cmd == "h" or cmd == "help":
+            self.show_help()
+
+        if cmd == "q" or cmd == "quit":
+            self.running = False
 
 
 def parse_arguments() -> argparse.Namespace:

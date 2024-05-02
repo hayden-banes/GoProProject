@@ -22,6 +22,7 @@ class Timelapse:
     def start(self):
         if not self.is_running():
             print(f"Starting timelapse for GoPro {self.gopro.identifier}")
+            assert (requests.get(self.timelapse_preset_url, timeout=2)).ok
             self.timelapse_signal.clear()
             self._timelapse.start()
         else:
@@ -47,15 +48,14 @@ class Timelapse:
             print("Error: please enter a positive integer larger than 3")
 
     def timelapse_task(self):
-        try:
-            assert (requests.get(self.timelapse_preset_url, timeout=2)).ok
-            while not self.timelapse_signal.is_set():
+        while not self.timelapse_signal.is_set():
+            try:
                 if self.check_schedule():
-                    assert (self.gopro.start_shutter()).ok
+                    self.gopro.start_shutter()
                     self.photos_taken += 1
                 sleep(self.interval)
-        except requests.exceptions.RequestException as e:
-            print("Communication error, stopping timelapse")
+            except requests.exceptions.RequestException as e:
+                print("Communication error, picture not taken")
 
     def is_running(self) -> bool:
         return self._timelapse.is_alive()
