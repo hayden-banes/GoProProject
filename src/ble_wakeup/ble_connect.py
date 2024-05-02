@@ -31,10 +31,7 @@ async def connect_ble(identifier: Optional[str] = None):
         for device in await BleakScanner.discover(timeout=5, detection_callback=_scan_callback):
             if device.name != "Unknown" and device.name is not None:
                 devices[device.name] = device
-        # Log every device we discovered
-        # for d in devices:
-        #     logger.info(f"\tDiscovered: {d}")
-        # Now look for our matching device(s)
+
         token = re.compile(r"GoPro [A-Z0-9]{4}" if identifier is None else f"GoPro {identifier}")
         matched_devices = [device for name, device in devices.items() if token.match(name)]
         logger.info(f"Found {len(matched_devices)} matching devices.")
@@ -46,15 +43,8 @@ async def connect_ble(identifier: Optional[str] = None):
         client = BleakClient(device)
         await client.connect(timeout=10)
         logger.info("BLE Connected!")
-        # logger.info("Attempting to pair...")
-        # try:
-        #     await client.pair()
-        # except NotImplementedError:
-        #     # This is expected on Mac
-        #     pass
-        # logger.info("Pairing complete!")
 
-        logger.info("Disconnecting and switching to USB")
+        logger.info("Switching to USB")
         await client.disconnect()
         return
     
