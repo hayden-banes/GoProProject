@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Optional
 
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice as BleakDevice
-from ble_wakeup import logger
 
 
 async def connect_ble(identifier: Optional[str] = None):
@@ -16,7 +15,7 @@ async def connect_ble(identifier: Optional[str] = None):
         devices: Dict[str, BleakDevice] = {}
 
         # Scan for devices
-        logger.info("Scanning for bluetooth devices...")
+        print("Scanning for bluetooth devices...")
 
         # Scan callback to also catch nonconnectable scan responses
         # pylint: disable=cell-var-from-loop
@@ -34,22 +33,22 @@ async def connect_ble(identifier: Optional[str] = None):
 
         token = re.compile(r"GoPro [A-Z0-9]{4}" if identifier is None else f"GoPro {identifier}")
         matched_devices = [device for name, device in devices.items() if token.match(name)]
-        logger.info(f"Found {len(matched_devices)} matching devices.")
+        print(f"Found {len(matched_devices)} matching devices.")
 
         # Connect to first matching Bluetooth device
         device = matched_devices[0]
 
-        logger.info(f"Establishing BLE connection to {device}...")
+        print(f"Establishing BLE connection to {device}...")
         client = BleakClient(device)
         await client.connect(timeout=10)
-        logger.info("BLE Connected!")
+        print("BLE Connected!")
 
-        logger.info("Switching to USB")
+        print("Switching to USB")
         await client.disconnect()
         return
     
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error(f"Connection establishment failed: {exc}")
-        logger.warning(f"Retrying")
+        print(f"Connection establishment failed: {exc}")
+        print(f"Retrying")
 
     raise RuntimeError(f"Couldn't establish BLE connection")

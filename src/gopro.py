@@ -3,7 +3,7 @@ from time import sleep
 from threading import Thread, Event
 
 import requests
-import ble_wakeup.ble_connect
+import ble_connect
 
 
 class GoPro:
@@ -61,7 +61,7 @@ class GoPro:
 
             try:
                 print("Attempting wake up via BLE")
-                await ble_wakeup.ble_connect.connect_ble(self.identifier)
+                await ble_connect.connect_ble(self.identifier)
 
             except RuntimeError as e:
                 print(f"Error connecting via BLE")
