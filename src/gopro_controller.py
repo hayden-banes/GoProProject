@@ -1,6 +1,8 @@
+import datetime
 from pathlib import Path
 from gopro import GoPro
 from timelapse import Timelapse
+from PIL import Image
 
 import os
 import argparse
@@ -79,45 +81,76 @@ class GoProController():
         if self.timelapse.scheduled: print(f"Timelapse schedule {self.timelapse.get_schedule()}")
 
     def download(self):
-        if self.timelapse.is_running():
-            print("Please stop the current timelapse before downloading")
-            return
+        try:
+            if self.timelapse.is_running():
+                print("Please stop the current timelapse before downloading")
+                return
 
-        delete = input("Delete pictures from camera too? (y/n): ") == 'y'
-        url = self.gopro.base_url + "/gopro/media/list"
-        response = requests.get(url, timeout=2).json()
+            delete = input("Delete pictures from camera too? (y/n): ") == 'y'
+            url = self.gopro.base_url + "/gopro/media/list"
+            response = requests.get(url, timeout=2).json()
 
-        path = (Path(__file__).parent / "../gproimg/").resolve()
+            path = (Path(__file__).parent / "../gproimg/").resolve()
 
-        count = 0  # Total images counter
-        img_no = 0  # Transfered images counter
+            count = 0  # Total images counter
+            img_no = 0  # Transfered images counter
 
-        for media in response['media']:
-            count += len(media['fs'])
+        
+            for media in response['media']:
+                count += len(media['fs'])
+            
+            print(f"{count} files found")
 
-        for media in response['media']:
-            for image in media['fs']:
-                self.download_media(
-                    dest=path, srcfolder=media['d'], srcimage=image['n'])
+            for media in response['media']:
+                folder = media['d']
+                if not os.path.exists(f"{path}/{folder}"):
+                    os.makedirs(f"{path}/{folder}")
 
-                # If delete flag is enabled
-                # TODO Verify image has been safely downloaded before deleting
-                if delete:
-                    self.delete_img(srcfolder=media['d'], srcimage=image['n'])
+                for image in media['fs']:
+                    image = image['n']
+                    self.download_media(
+                        dest=path, srcfolder=folder, srcimage=image
+                        )
+                    
+                    if self.fix_metadata(f"{path}/{folder}/{image}"):
+                        
+                        # If delete flag is enabled
+                        # The image can only be downloaded from the camera if it can be found locally
+                        if delete:
+                            self.delete_img(srcfolder=folder, srcimage=image)
 
-                # Provide an update on file transfer
-                img_no += 1
-                if img_no % 5 == 0:
-                    print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
+                    # Provide an update on file transfer
+                    img_no += 1
+                    if img_no % 5 == 0:
+                        print(f'{round((img_no/count)*100,ndigits=2)}%', end="\r")
 
-        print('100% - Done!')  # To give a clean ending
+            print('100% - Done!')  # To give a clean ending
+
+        except FileNotFoundError as e:
+            print("Error operating on files")
+            print(e)
+            print(e.__traceback__.tb_lineno) # type: ignore
+
+    def fix_metadata(self, path) -> bool:
+        '''
+        Returns true if the file can be found
+        '''
+        img = Image.open(path)
+        if not img: return False
+        exif_data = img.getexif()
+        if exif_data:
+            timestamp = exif_data.get(306) or exif_data.get(36867)
+            if timestamp:
+                cre = datetime.datetime.strptime(
+                timestamp, "%Y:%m:%d %H:%M:%S").timestamp()
+                os.utime(path, times=(cre, cre))
+        else:
+            print("Warning: Timestamp may be incorrect on file")
+        return True
 
     def download_media(self, dest, srcfolder, srcimage):
         url = self.gopro.base_url + f"/videos/DCIM/{srcfolder}/{srcimage}"
         path = f"{dest}/{srcfolder}/{srcimage}"
-
-        if not os.path.exists(srcfolder):
-            os.makedirs(srcfolder)
 
         try:
             #Download Image
@@ -125,15 +158,6 @@ class GoProController():
                 response.raise_for_status()
                 with open(path, 'wb') as f:
                     f.write(response.content)
-
-            # #Fix metadata
-            # # /gopro/media/info?path = 100GOPRO/GOPR4763.JPG
-
-            # cre = requests.get(self.gopro.base_url + f"/gopro/media/info?path={srcfolder}/{srcimage}").json()['cre']
-            # img = Image.open(path)
-            # exif_data = piexif.load(img.info['exif'])
-            # creation_date = datetime.datetime.fromtimestamp(cre)
-            # exif_data['exif'][piexif.ExifIFD.DateTimeOriginal] = exif_data['exif'][piexif.ExifIFD.DateTimeDigitized]
             
         except requests.exceptions.RequestException as e:
             print("error")
