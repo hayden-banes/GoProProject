@@ -26,16 +26,15 @@ class GoPro:
             print("Keep alive signal is already active")
 
     def stop(self):
+        # Set the signal to send keep alive loop and stop attempting reconnect
+        self.keep_alive_signal.set()
+        # if the thread is still running, then stop it
         if self.is_alive():
-            self.keep_alive_signal.set()
             self._keep_alive.join()
-            print("Keep alive signal stopped")
-
-        self.keep_alive_signal.clear()
-        self._keep_alive = Thread(
-            target=self.keep_alive_task, args=()
-        )
+        # create a new thread, as threads can only be started once
+        self._keep_alive = Thread(target=self.keep_alive_task, args=())
         self.connected = False
+        print("Keep alive signal stopped")  
 
     async def keep_alive_task(self):
         url = self.base_url + "/gopro/camera/keep_alive"
