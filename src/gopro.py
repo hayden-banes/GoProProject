@@ -19,22 +19,22 @@ class GoPro:
     def start(self):
         if not self.is_alive():
             print(f"Starting keep alive signal for GoPro {self.identifier}")
+            self.set_auto_powerdown_off()
             self.keep_alive_signal.clear()
             self._keep_alive.start()
         else:
             print("Keep alive signal is already active")
 
     def stop(self):
+        # Set the signal to send keep alive loop and stop attempting reconnect
+        self.keep_alive_signal.set()
+        # if the thread is still running, then stop it
         if self.is_alive():
-            self.keep_alive_signal.set()
             self._keep_alive.join()
-            print("Keep alive signal stopped")
-
-        self.keep_alive_signal.clear()
-        self._keep_alive = Thread(
-            target=self.keep_alive_task, args=()
-        )
+        # create a new thread, as threads can only be started once
+        self._keep_alive = Thread(target=self.keep_alive_task, args=())
         self.connected = False
+        print("Keep alive signal stopped")  
 
     async def keep_alive_task(self):
         url = self.base_url + "/gopro/camera/keep_alive"
@@ -48,7 +48,7 @@ class GoPro:
             sleep(3)
 
     async def connect(self) -> None:
-        while not self.connected:
+        while not self.connected and not self.keep_alive_signal.is_set():
             try:
                 response = requests.get(
                     self.base_url + "/gopro/camera/control/wired_usb?p=1", timeout=2)
@@ -57,17 +57,17 @@ class GoPro:
                     self.connected = True
                     return
             except requests.Timeout as e:
-                print("(re)trying wakeup")
+                print("Failed to enable wired control. Retrying wakeup")
 
             try:
                 print("Attempting wake up via BLE")
-                client = await ble_wakeup.ble_connect.connect_ble(self.identifier)
-                await client.disconnect()
+                await ble_wakeup.ble_connect.connect_ble(self.identifier)
 
             except RuntimeError as e:
-                print(f"Error connecting")
+                print(f"Error connecting via BLE")
 
-            sleep(2) # Wait for the camera
+            print("Waiting for camera")
+            sleep(10)
 
 
     async def check_gopro(self):
@@ -88,4 +88,11 @@ class GoPro:
     
     def generate_base_url(self) -> str:
         return f"http://172.2{self.identifier[-3]}.1{self.identifier[-2:]}.51:8080"
-        
+    
+    def set_auto_powerdown_off(self):
+        url = self.base_url + "/gopro/camera/setting?setting=59&option=0"
+        requests.get(url, timeout=2)
+
+    def set_auto_powerdown_on(self):
+        url = self.base_url + "/gopro/camera/setting?setting=59&option=4"
+        requests.get(url, timeout=2)

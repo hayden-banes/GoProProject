@@ -2,7 +2,6 @@
 # This copyright was auto-generated on Wed, Sep  1, 2021  5:05:56 PM
 
 import re
-import asyncio
 from typing import Dict, Any, List, Optional
 
 from bleak import BleakScanner, BleakClient
@@ -10,37 +9,7 @@ from bleak.backends.device import BLEDevice as BleakDevice
 from ble_wakeup import logger
 
 
-def exception_handler(loop: asyncio.AbstractEventLoop, context: Dict[str, Any]) -> None:
-    """Catch exceptions from non-main thread
-
-    Args:
-        loop (asyncio.AbstractEventLoop): loop to catch exceptions in
-        context (Dict[str, Any]): exception context
-    """
-    msg = context.get("exception", context["message"])
-    logger.error(f"Caught exception {str(loop)}: {msg}")
-    logger.critical("This is unexpected and unrecoverable.")
-
-
-async def connect_ble(identifier: Optional[str] = None) -> BleakClient:
-    """Connect to a GoPro, then pair, and enable notifications
-
-    If identifier is None, the first discovered GoPro will be connected to.
-
-    Retry 10 times
-
-    Args:
-        notification_handler (noti_handler_T): callback when notification is received
-        identifier (str, optional): Last 4 digits of GoPro serial number. Defaults to None.
-
-    Raises:
-        Exception: couldn't establish connection after retrying 10 times
-
-    Returns:
-        BleakClient: connected client
-    """
-
-    asyncio.get_event_loop().set_exception_handler(exception_handler)
+async def connect_ble(identifier: Optional[str] = None):
 
     try:
         # Map of discovered devices indexed by name
@@ -62,10 +31,7 @@ async def connect_ble(identifier: Optional[str] = None) -> BleakClient:
         for device in await BleakScanner.discover(timeout=5, detection_callback=_scan_callback):
             if device.name != "Unknown" and device.name is not None:
                 devices[device.name] = device
-        # Log every device we discovered
-        for d in devices:
-            logger.info(f"\tDiscovered: {d}")
-        # Now look for our matching device(s)
+
         token = re.compile(r"GoPro [A-Z0-9]{4}" if identifier is None else f"GoPro {identifier}")
         matched_devices = [device for name, device in devices.items() if token.match(name)]
         logger.info(f"Found {len(matched_devices)} matching devices.")
@@ -75,50 +41,15 @@ async def connect_ble(identifier: Optional[str] = None) -> BleakClient:
 
         logger.info(f"Establishing BLE connection to {device}...")
         client = BleakClient(device)
-        await client.connect(timeout=15)
+        await client.connect(timeout=10)
         logger.info("BLE Connected!")
 
-        # Try to pair (on some OS's this will expectedly fail)
-        logger.info("Attempting to pair...")
-        try:
-            await client.pair()
-        except NotImplementedError:
-            # This is expected on Mac
-            pass
-        logger.info("Pairing complete!")
-
-        return client
+        logger.info("Switching to USB")
+        await client.disconnect()
+        return
+    
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error(f"Connection establishment failed: {exc}")
         logger.warning(f"Retrying")
 
     raise RuntimeError(f"Couldn't establish BLE connection")
-
-
-# async def main(identifier: Optional[str]) -> None:
-#     def dummy_notification_handler(*_: Any) -> None:
-#         ...
-
-#     client = await connect_ble(dummy_notification_handler, identifier)
-#     await client.disconnect()
-
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description="Connect to a GoPro camera, pair, then enable notifications.")
-#     parser.add_argument(
-#         "-i",
-#         "--identifier",
-#         type=str,
-#         help="Last 4 digits of GoPro serial number, which is the last 4 digits of the default camera SSID. \
-#             If not used, first discovered GoPro will be connected to",
-#         default=None,
-#     )
-#     args = parser.parse_args()
-
-#     try:
-#         asyncio.run(main(args.identifier))
-#     except Exception as e:  # pylint: disable=broad-exception-caught
-#         logger.error(e)
-#         sys.exit(-1)
-#     else:
-#         sys.exit(0)

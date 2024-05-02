@@ -131,18 +131,13 @@ class GoProController():
         print("Stopping background tasks", end="\r")
         self.timelapse.stop()
         print("Stopping background tasks.", end="\r")
-        self.gopro.stop()
+        self.gopro.set_auto_powerdown_on()
         print("Stopping background tasks..", end="\r")
+        self.gopro.stop()
         print("Stopping background tasks...")
         print("Goodbye!")
 
-    def set_auto_powerdown_off(self):
-        url = self.gopro.base_url + "/gopro/camera/setting?setting=59&option=0"
-        response = requests.get(url, timeout=2)
 
-    def set_auto_powerdown_on(self):
-        url = "/gopro/camera/setting?setting=59&option=4"
-        response = requests.get(url, timeout=2)
 
     def delete_img(self, srcfolder, srcimage):
         url = self.gopro.base_url + \
