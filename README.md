@@ -9,7 +9,7 @@ Supports timelapses with custom intervals, downloading media from the camera, cl
 3. Type h to discover the full set of commands
 
 ## Issues
-The is an ongoing project so there are features in development / planned. If you have any ideas / suggestions, or discover an issue, please create and issue or fork this repo and create pull request.
+This an ongoing project so there are features in development / planned. If you have any ideas / suggestions, or discover an issue, please create and issue or fork this repo and create pull request.
 
 ## Web app Version
 Development of this project has slowed since I have switched my primary focus to a web app version of it. See [here](https://github.com/hayden-banes/GoProWebApp) for more info
